@@ -1,18 +1,23 @@
 const Resume = require("../models/Resume");
 const { extractTextFromPDF } = require("../services/pdfService");
+const { analyzeResume } = require("../services/resumeAnalyzer");
 
 const uploadResume = async (req, res) => {
     try {
 
         // Extract text from uploaded PDF
         const extractedText = await extractTextFromPDF(req.file.path);
+        const analysis = analyzeResume(extractedText);
 
         // Save resume details in MongoDB
         const resume = await Resume.create({
             user: req.user.id,
             fileName: req.file.filename,
             fileUrl: req.file.path,
-            extractedText
+            extractedText,
+            score: analysis.score,
+            suggestions: analysis.suggestions
+
         });
 
         res.status(201).json({
@@ -22,11 +27,13 @@ const uploadResume = async (req, res) => {
         });
 
     } catch (error) {
-    console.error("===== PDF ERROR =====");
-    console.error(error);
 
-    throw error;
-}
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+
+    }
 };
 
 module.exports = {
