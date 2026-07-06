@@ -21,10 +21,23 @@ const uploadResume = async (req, res) => {
         });
 
         res.status(201).json({
-            success: true,
-            message: "Resume uploaded and text extracted successfully",
-            resume
-        });
+    success: true,
+    message: "Resume uploaded and analyzed successfully",
+
+    analysis: {
+        overallScore: analysis.score,
+        status: analysis.status,
+        analysisVersion: analysis.analysisVersion,
+        suggestions: analysis.suggestions
+    },
+
+    resume: {
+        id: resume._id,
+        fileName: resume.fileName,
+        fileUrl: resume.fileUrl,
+        createdAt: resume.createdAt
+    }
+});
 
     } catch (error) {
 

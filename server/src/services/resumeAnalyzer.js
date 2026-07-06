@@ -1,59 +1,43 @@
-const analyzeResume = (text) => {
+const { checkSections } = require("./analyzer/sectionChecker");
+const { checkContact } = require("./analyzer/contactChecker");
+const { checkExperience } = require("./analyzer/experienceChecker");
+const { checkEducation } = require("./analyzer/educationChecker");
+const { checkProjects } = require("./analyzer/projectChecker");
+const { checkAchievements } = require("./analyzer/achievementChecker");
+const { checkCertifications } = require("./analyzer/certificationChecker");
+const { checkResumeLength } = require("./analyzer/resumeLengthChecker");
+const { calculateScore } = require("./analyzer/scoreCalculator");
+const { getResumeStatus } = require("./analyzer/resumeStatus");
 
-    let score = 0;
-    const suggestions = [];
+const analyzeResume = (resumeText) => {
 
-    const resumeText = text.toLowerCase();
+    const results = [
 
-    // Professional Summary
-    if (resumeText.includes("summary") || resumeText.includes("professional summary")) {
-        score += 15;
-    } else {
-        suggestions.push("Add a Professional Summary section.");
-    }
+        checkSections(resumeText),
 
-    // Skills
-    if (resumeText.includes("skills") || resumeText.includes("technical skills")) {
-        score += 20;
-    } else {
-        suggestions.push("Add a Technical Skills section.");
-    }
+        checkContact(resumeText),
 
-    // Education
-    if (resumeText.includes("education")) {
-        score += 15;
-    } else {
-        suggestions.push("Add an Education section.");
-    }
+        checkExperience(resumeText),
 
-    // Projects
-    if (resumeText.includes("projects")) {
-        score += 20;
-    } else {
-        suggestions.push("Add a Projects section.");
-    }
+        checkEducation(resumeText),
 
-    // Experience
-    if (resumeText.includes("experience") || resumeText.includes("work experience")) {
-        score += 15;
-    } else {
-        suggestions.push("Add a Work Experience section.");
-    }
+        checkProjects(resumeText),
 
-    // Contact Information
-    const hasEmail = /\S+@\S+\.\S+/.test(text);
-    const hasPhone = /\d{10}/.test(text.replace(/\D/g, ""));
+        checkAchievements(resumeText),
 
-    if (hasEmail && hasPhone) {
-        score += 15;
-    } else {
-        suggestions.push("Include both a valid email and phone number.");
-    }
+        checkCertifications(resumeText),
 
-    return {
-        score,
-        suggestions
-    };
+        checkResumeLength(resumeText)
+
+    ];
+
+    const analysis = calculateScore(results);
+
+    analysis.status = getResumeStatus(analysis.score);
+    analysis.analysisVersion = "Rule-Based v2";
+
+    return analysis;
+
 };
 
 module.exports = {
