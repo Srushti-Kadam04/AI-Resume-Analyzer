@@ -1,32 +1,20 @@
-import axios from "axios";
+import axiosInstance from "./axios";
 
 export const loginUser = async (email, password) => {
+  const response = await axiosInstance.post("/auth/login", {
+    email,
+    password,
+  });
 
-    const response = await axios.post(
-        "http://localhost:5000/api/auth/login",
-        {
-            email,
-            password,
-        }
-    );
-
-    
-    return response.data;
-    
-    localStorage.setItem("token", response.data.token);
-
+  return response.data;
 };
 
 export const registerUser = async (name, email, password) => {
+  const response = await axiosInstance.post("/auth/register", {
+    name,
+    email,
+    password,
+  });
 
-    const response = await axios.post(
-        "http://localhost:5000/api/auth/register",
-        {
-            name,
-            email,
-            password,
-        }
-    );
-
-    return response.data;
+  return response.data;
 };
