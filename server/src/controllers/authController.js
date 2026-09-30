@@ -57,6 +57,9 @@ const registerUser = async (req, res) => {
 
 
 const loginUser = async(req,res)=>{
+    console.log("Login API Hit");
+    console.log(req.body);
+
     try{
         const{email,password} = req.body;
 
@@ -109,7 +112,29 @@ const loginUser = async(req,res)=>{
     }
 };
 
+const getProfile = async(req,res)=>{
+    const user = await User.findById(req.user.id);
+
+    if(!user){
+        return res.status(404).json({
+            success: false,
+            message: "User not found"
+        });
+    }
+
+    return res.status(200).json({
+        success:true,
+        user:{
+            name:user.name,
+            email:user.email,
+            createdAt:user.createdAt
+        }
+    });
+
+};
+
 module.exports = {
     registerUser,
-    loginUser
+    loginUser,
+    getProfile
 };

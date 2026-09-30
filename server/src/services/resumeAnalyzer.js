@@ -9,37 +9,36 @@ const { checkResumeLength } = require("./analyzer/resumeLengthChecker");
 const { calculateScore } = require("./analyzer/scoreCalculator");
 const { getResumeStatus } = require("./analyzer/resumeStatus");
 
-const analyzeResume = (resumeText) => {
+const analyzeResume = (
+  resumeText,
+  careerField,
+  targetRole
+) => {
 
-    const results = [
+  const results = [
+    checkSections(resumeText),
+    checkContact(resumeText),
+    checkExperience(resumeText),
+    checkEducation(resumeText),
+    checkProjects(resumeText),
+    checkAchievements(resumeText),
+    checkCertifications(resumeText),
+    checkResumeLength(resumeText),
+  ];
 
-        checkSections(resumeText),
+  const analysis = calculateScore(results);
 
-        checkContact(resumeText),
+  analysis.status = getResumeStatus(analysis.score);
 
-        checkExperience(resumeText),
+  analysis.analysisVersion = "Rule-Based v3";
 
-        checkEducation(resumeText),
+  // Role information
+  analysis.careerField = careerField;
+  analysis.targetRole = targetRole;
 
-        checkProjects(resumeText),
-
-        checkAchievements(resumeText),
-
-        checkCertifications(resumeText),
-
-        checkResumeLength(resumeText)
-
-    ];
-
-    const analysis = calculateScore(results);
-
-    analysis.status = getResumeStatus(analysis.score);
-    analysis.analysisVersion = "Rule-Based v2";
-
-    return analysis;
-
+  return analysis;
 };
 
 module.exports = {
-    analyzeResume
+  analyzeResume,
 };

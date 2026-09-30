@@ -1,10 +1,8 @@
-function App() {
-  return (
-    <div>
-      <h1>AI Resume Analyzer</h1>
-      <p>Frontend Setup Completed 🚀</p>
-    </div>
-  );
+import AppRoutes from "./routes/AppRoutes";
+
+import History from "./pages/History";
+function App(){
+  return <AppRoutes/>;
 }
 
 export default App;
