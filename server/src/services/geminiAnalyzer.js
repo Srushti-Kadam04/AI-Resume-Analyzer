@@ -4,6 +4,85 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
+const PRIMARY_MODEL = "gemini-3.1-flash-lite";
+const FALLBACK_MODEL = "gemini-3.5-flash-lite";
+
+// Wait helper
+const sleep = (ms) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
+// Check whether Gemini error is temporary/retryable
+const isRetryableGeminiError = (error) => {
+  const status = Number(
+    error?.status ||
+    error?.code ||
+    error?.statusCode ||
+    error?.response?.status
+  );
+
+  const message = String(error?.message || "");
+
+  return (
+    [408, 429, 500, 502, 503, 504].includes(status) ||
+    /503|UNAVAILABLE|RESOURCE_EXHAUSTED|INTERNAL|DEADLINE_EXCEEDED/i.test(
+      message
+    )
+  );
+};
+
+// Gemini request with exponential backoff
+const generateWithRetry = async (model, prompt, maxRetries = 3) => {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `🤖 Gemini request using ${model} (attempt ${attempt + 1}/${
+          maxRetries + 1
+        })`
+      );
+
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+      });
+
+      return response;
+    } catch (error) {
+      lastError = error;
+
+      console.error(
+        `Gemini error with ${model}:`,
+        error?.message || error
+      );
+
+      // Do not retry permanent errors
+      if (!isRetryableGeminiError(error)) {
+        throw error;
+      }
+
+      // Stop after final attempt
+      if (attempt === maxRetries) {
+        break;
+      }
+
+      // 2s, 4s, 8s + small random jitter
+      const baseDelay = 2000 * Math.pow(2, attempt);
+      const jitter = Math.floor(Math.random() * 500);
+      const delay = baseDelay + jitter;
+
+      console.log(
+        `⏳ Gemini temporarily unavailable. Retrying in ${delay}ms...`
+      );
+
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
+};
+
 const analyzeResumeWithGemini = async (
   resumeText,
   careerField,
@@ -115,16 +194,47 @@ Do not include explanations outside JSON.
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
-      contents: prompt,
-    });
+    let response;
+
+    // --------------------------------------------------
+    // 1. Try primary model with retries
+    // --------------------------------------------------
+    try {
+      response = await generateWithRetry(
+        PRIMARY_MODEL,
+        prompt,
+        3
+      );
+    } catch (primaryError) {
+      console.error(
+        `❌ Primary model failed: ${PRIMARY_MODEL}`
+      );
+
+      console.error(
+        primaryError?.message || primaryError
+      );
+
+      // --------------------------------------------------
+      // 2. Try fallback model
+      // --------------------------------------------------
+      console.log(
+        `🔄 Trying fallback model: ${FALLBACK_MODEL}`
+      );
+
+      response = await generateWithRetry(
+        FALLBACK_MODEL,
+        prompt,
+        2
+      );
+    }
 
     const text = response.text;
 
     if (!text) {
       throw new Error("Gemini returned an empty response.");
     }
+
+    console.log("✅ Gemini response received.");
 
     const cleanedResponse = text
       .replace(/```json/gi, "")
@@ -136,30 +246,58 @@ Do not include explanations outside JSON.
     try {
       analysis = JSON.parse(cleanedResponse);
     } catch (parseError) {
-      console.error("Gemini returned invalid JSON:");
+      console.error("❌ Gemini returned invalid JSON:");
       console.error(cleanedResponse);
 
       throw new Error("Gemini returned invalid JSON.");
     }
 
+    // --------------------------------------------------
     // Ensure arrays always exist
+    // --------------------------------------------------
+
     analysis.strengths = analysis.strengths || [];
+
     analysis.weaknesses = analysis.weaknesses || [];
-    analysis.missingSkills = analysis.missingSkills || [];
+
+    analysis.missingSkills =
+      analysis.missingSkills || [];
+
     analysis.keywordSuggestions =
       analysis.keywordSuggestions || [];
+
     analysis.experienceFeedback =
       analysis.experienceFeedback || [];
+
     analysis.projectFeedback =
       analysis.projectFeedback || [];
+
     analysis.educationFeedback =
       analysis.educationFeedback || [];
+
     analysis.improvementSuggestions =
       analysis.improvementSuggestions || [];
+
     analysis.recommendedSkills =
       analysis.recommendedSkills || [];
 
+    // --------------------------------------------------
+    // Ensure scores are numbers
+    // --------------------------------------------------
+
+    analysis.overallScore =
+      Number(analysis.overallScore) || 0;
+
+    analysis.atsScore =
+      Number(analysis.atsScore) || 0;
+
+    analysis.roleMatchScore =
+      Number(analysis.roleMatchScore) || 0;
+
+    // --------------------------------------------------
     // Ensure status exists
+    // --------------------------------------------------
+
     if (!analysis.status) {
       if (analysis.overallScore >= 80) {
         analysis.status = "Excellent";
@@ -177,7 +315,8 @@ Do not include explanations outside JSON.
     return analysis;
 
   } catch (error) {
-    console.error("Gemini Analysis Error:", error);
+    console.error("❌ Gemini Analysis Failed:", error);
+
     throw error;
   }
 };
